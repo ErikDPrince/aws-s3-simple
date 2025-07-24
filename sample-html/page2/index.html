@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page 2 - Redirect System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .back-button {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+        .token-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌟 Page 2 - Another Success!</h1>
+        
+        <div class="info-box">
+            <h2>Multi-Page Redirect System</h2>
+            <p>Excellent! You've successfully accessed Page 2 through the AWS redirect system.</p>
+            <p>This demonstrates that the system can handle multiple pages and routes.</p>
+        </div>
+        
+        <div class="info-box">
+            <h3>Request Details:</h3>
+            <p><strong>Path:</strong> /page2/</p>
+            <p><strong>Token:</strong> <span class="token-display" id="tokenDisplay">Loading...</span></p>
+            <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+        </div>
+        
+        <div class="info-box">
+            <h3>System Features:</h3>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <h4>🚀 Fast</h4>
+                    <p>CloudFront CDN</p>
+                </div>
+                <div class="feature-item">
+                    <h4>💰 Cost-Effective</h4>
+                    <p>Serverless architecture</p>
+                </div>
+                <div class="feature-item">
+                    <h4>🔒 Secure</h4>
+                    <p>Token-based access</p>
+                </div>
+                <div class="feature-item">
+                    <h4>📱 Scalable</h4>
+                    <p>Auto-scaling Lambda</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-box">
+            <h3>Technical Stack:</h3>
+            <ul>
+                <li><strong>AWS S3:</strong> Static file hosting</li>
+                <li><strong>CloudFront:</strong> Global content delivery</li>
+                <li><strong>API Gateway:</strong> HTTP API endpoint</li>
+                <li><strong>Lambda:</strong> Serverless redirect logic</li>
+                <li><strong>IAM:</strong> Security and permissions</li>
+            </ul>
+        </div>
+        
+        <button class="back-button" onclick="goBack()">← Back to Main Page</button>
+    </div>
+
+    <script>
+        // Display the token from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || 'No token provided';
+        document.getElementById('tokenDisplay').textContent = token;
+        
+        // Display current timestamp
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        
+        function goBack() {
+            // Go back to the main page
+            window.location.href = '/?token=' + token;
+        }
+        
+        // Add some interactive effects
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.querySelector('.container');
+            container.style.opacity = '0';
+            container.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                container.style.transition = 'all 0.5s ease';
+                container.style.opacity = '1';
+                container.style.transform = 'translateY(0)';
+            }, 100);
+            
+            // Add animation to feature items
+            const featureItems = document.querySelectorAll('.feature-item');
+            featureItems.forEach((item, index) => {
+                item.style.opacity = '0';
+                item.style.transform = 'scale(0.8)';
+                
+                setTimeout(() => {
+                    item.style.transition = 'all 0.3s ease';
+                    item.style.opacity = '1';
+                    item.style.transform = 'scale(1)';
+                }, 300 + (index * 100));
+            });
+        });
+    </script>
+</body>
+</html> 

@@ -135,6 +135,23 @@ Resources:
           ForwardedValues:
             QueryString: true
         DefaultRootObject: index.html
+        # Uncomment and configure for custom domain with SSL certificate
+        # Aliases:
+        #   - your-domain.com
+        #   - www.your-domain.com
+        # ViewerCertificate:
+        #   AcmCertificateArn: !Ref SSLCertificate
+        #   SslSupportMethod: sni-only
+        #   MinimumProtocolVersion: TLSv1.2_2021
+
+  ## SSL Certificate (uncomment and configure for custom domain) ##
+  # SSLCertificate:
+  #   Type: AWS::CertificateManager::Certificate
+  #   Properties:
+  #     DomainName: your-domain.com
+  #     SubjectAlternativeNames:
+  #       - www.your-domain.com
+  #     ValidationMethod: DNS
 
   ## Placeholder for Lambda to know CF domain (manually replace after deployment) ##
   CloudFrontDomainPlaceholder:
@@ -149,3 +166,5 @@ Outputs:
     Value: !Sub http://${StaticSiteBucket}.s3-website-${AWS::Region}.amazonaws.com/
   APIEndpoint:
     Value: !Sub https://${RedirectAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/
+  CloudFrontDomain:
+    Value: !GetAtt CloudFrontDistribution.DomainName

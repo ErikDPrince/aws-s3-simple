@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page 1 - Redirect System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .back-button {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+        .token-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Page 1 - Success!</h1>
+        
+        <div class="info-box">
+            <h2>Redirect System Working</h2>
+            <p>Congratulations! You've successfully accessed Page 1 through the AWS redirect system.</p>
+            <p>This page was served from your S3 bucket via CloudFront distribution.</p>
+        </div>
+        
+        <div class="info-box">
+            <h3>Request Details:</h3>
+            <p><strong>Path:</strong> /page1/</p>
+            <p><strong>Token:</strong> <span class="token-display" id="tokenDisplay">Loading...</span></p>
+            <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+        </div>
+        
+        <div class="info-box">
+            <h3>How it works:</h3>
+            <ol>
+                <li>Client sends POST request to API Gateway with token</li>
+                <li>Lambda function processes the request</li>
+                <li>Lambda returns 302 redirect to CloudFront URL</li>
+                <li>CloudFront serves this HTML file from S3</li>
+            </ol>
+        </div>
+        
+        <button class="back-button" onclick="goBack()">← Back to Main Page</button>
+    </div>
+
+    <script>
+        // Display the token from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || 'No token provided';
+        document.getElementById('tokenDisplay').textContent = token;
+        
+        // Display current timestamp
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        
+        function goBack() {
+            // Go back to the main page
+            window.location.href = '/?token=' + token;
+        }
+        
+        // Add some interactive effects
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.querySelector('.container');
+            container.style.opacity = '0';
+            container.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                container.style.transition = 'all 0.5s ease';
+                container.style.opacity = '1';
+                container.style.transform = 'translateY(0)';
+            }, 100);
+        });
+    </script>
+</body>
+</html> 

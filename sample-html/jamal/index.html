@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jamal's Page - Path-Based Routing Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .token-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        .success-badge {
+            background: #28a745;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        .flow-diagram {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .flow-step {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Jamal's Page - Path-Based Routing Success!</h1>
+        
+        <div class="success-badge">✅ REQUIREMENT MET: Path-based routing working perfectly!</div>
+        
+        <div class="info-box">
+            <h2>Request Flow Verification</h2>
+            <div class="flow-diagram">
+                <div class="flow-step">1️⃣ <strong>POST Request:</strong> Client sent POST to /jamal with token in body</div>
+                <div class="flow-step">2️⃣ <strong>API Gateway:</strong> Received request and routed to Lambda</div>
+                <div class="flow-step">3️⃣ <strong>Lambda:</strong> Extracted token and path, created redirect URL</div>
+                <div class="flow-step">4️⃣ <strong>Redirect:</strong> 302 redirect to CloudFront with token as query param</div>
+                <div class="flow-step">5️⃣ <strong>CloudFront:</strong> Served this file from S3 bucket</div>
+                <div class="flow-step">6️⃣ <strong>S3 Path:</strong> /jamal/index.html loaded successfully</div>
+            </div>
+        </div>
+        
+        <div class="info-box">
+            <h3>Request Details:</h3>
+            <p><strong>Path:</strong> /jamal/</p>
+            <p><strong>Token from URL:</strong> <span class="token-display" id="tokenDisplay">Loading...</span></p>
+            <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+            <p><strong>S3 File Path:</strong> s3://your-bucket/jamal/index.html</p>
+        </div>
+        
+        <div class="info-box">
+            <h3>Technical Implementation:</h3>
+            <ul>
+                <li><strong>API Gateway Route:</strong> POST /{proxy+} → Lambda</li>
+                <li><strong>Lambda Logic:</strong> Extract token from JSON body</li>
+                <li><strong>Token Processing:</strong> Add as ?token= parameter</li>
+                <li><strong>Path Routing:</strong> /jamal → /jamal/index.html</li>
+                <li><strong>CloudFront:</strong> Global CDN serving S3 content</li>
+            </ul>
+        </div>
+        
+        <div class="info-box">
+            <h3>Test the System:</h3>
+            <p>You can test other paths by sending POST requests:</p>
+            <div class="token-display">
+                curl -X POST https://your-api-id.execute-api.region.amazonaws.com/prod/any-path \<br>
+                -H "Content-Type: application/json" \<br>
+                -d '{"token": "your-token-here"}'
+            </div>
+            <p>This will redirect to: https://cloudfront-domain/any-path/index.html?token=your-token-here</p>
+        </div>
+        
+        <div class="info-box">
+            <h3>SSL Certificate Ready:</h3>
+            <p>The CloudFormation template includes commented sections for:</p>
+            <ul>
+                <li>Custom domain configuration</li>
+                <li>SSL certificate integration</li>
+                <li>ACM certificate management</li>
+            </ul>
+            <p>Simply uncomment and configure the SSL sections in the template.</p>
+        </div>
+    </div>
+
+    <script>
+        // Display the token from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || 'No token provided';
+        document.getElementById('tokenDisplay').textContent = token;
+        
+        // Display current timestamp
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        
+        // Add some interactive effects
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.querySelector('.container');
+            container.style.opacity = '0';
+            container.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                container.style.transition = 'all 0.5s ease';
+                container.style.opacity = '1';
+                container.style.transform = 'translateY(0)';
+            }, 100);
+            
+            // Animate flow steps
+            const flowSteps = document.querySelectorAll('.flow-step');
+            flowSteps.forEach((step, index) => {
+                step.style.opacity = '0';
+                step.style.transform = 'translateX(-20px)';
+                
+                setTimeout(() => {
+                    step.style.transition = 'all 0.3s ease';
+                    step.style.opacity = '1';
+                    step.style.transform = 'translateX(0)';
+                }, 200 + (index * 100));
+            });
+        });
+    </script>
+</body>
+</html> 

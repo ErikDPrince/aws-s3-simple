@@ -1,80 +1,59 @@
-# AWS S3 + CloudFront + API Gateway Redirect System
+# AWS S3 + API Gateway + Lambda Redirect System
 
-A ready-to-deploy AWS CloudFormation template that builds a minimal-cost infrastructure with the following components:
+A CloudFormation solution that meets your specific requirements:
 
-- **S3 Bucket** (public static hosting)
-- **CloudFront distribution** (caches and serves S3 content)
-- **API Gateway** (HTTP) endpoint
-- **Lambda function** to redirect POST requests with token to S3 HTML files
-- **IAM Role and Policy** for Lambda
+## 🎯 **Your Requirements Met**
 
-## Quick Start
+✅ **API Gateway + S3 + CloudFront** with CloudFormation  
+✅ **POST request** with path-based routing  
+✅ **Lambda** extracts token from request body  
+✅ **Token added as query parameter** (`&token=`)  
+✅ **Path-based routing** (e.g., `/jamal` → `jamal/index.html`)  
+✅ **SSL certificate** support for your organization  
 
-### Option 1: Automated Deployment (Recommended)
+## 🚀 **Quick Start**
 
-**For Windows:**
-```cmd
-deploy.bat
-```
-
-**For Linux/macOS:**
+### **Option 1: Immediate Testing (No CloudFront)**
 ```bash
-chmod +x deploy.sh
-./deploy.sh
+chmod +x deploy_no_cloudfront.sh
+./deploy_no_cloudfront.sh --quick
 ```
 
-### Option 2: Manual Deployment
+### **Option 2: Production (With CloudFront)**
+```bash
+# After AWS account verification for CloudFront
+aws cloudformation create-stack \
+  --stack-name aws-upwork-certificate \
+  --template-body file://cloudformation_template_with_cloudfront.yaml \
+  --parameters ParameterKey=BucketName,ParameterValue=aws-upwork-certificate \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region ap-southeast-1
+```
 
-1. Install and configure AWS CLI
-2. Deploy the CloudFormation stack:
-   ```bash
-   aws cloudformation create-stack \
-     --stack-name redirect-system \
-     --template-body file://cloudformation_template.yaml \
-     --parameters ParameterKey=BucketName,ParameterValue=your-unique-bucket-name \
-     --capabilities CAPABILITY_NAMED_IAM
-   ```
+## 📁 **Files**
 
-## Files Included
-
-- `cloudformation_template.yaml` - Main CloudFormation template
-- `deploy.sh` - Linux/macOS deployment script
-- `deploy.bat` - Windows deployment script
-- `SETUP_GUIDE.md` - Detailed setup instructions
+- `cloudformation_template_no_cloudfront.yaml` - Template without CloudFront (immediate use)
+- `cloudformation_template_with_cloudfront.yaml` - Template with CloudFront (after verification)
+- `deploy_no_cloudfront.sh` - Deployment script for no-CloudFront version
 - `sample-html/` - Sample HTML files for testing
-  - `index.html` - Main page with testing interface
-  - `page1/index.html` - Sample page 1
-  - `page2/index.html` - Sample page 2
 
-## How It Works
-
-1. **Client** sends POST request with token to API Gateway
-2. **API Gateway** forwards request to Lambda
-3. **Lambda** processes the token and path, returns redirect
-4. **CloudFront** serves the HTML content from S3
-5. **S3** stores the static HTML files
-
-## Cost Optimization
-
-This setup is designed to be cost-effective:
-- **S3**: Pay only for storage and requests
-- **CloudFront**: Free tier includes 1TB data transfer
-- **Lambda**: Free tier includes 1M requests/month
-- **API Gateway**: Pay per request (very low cost)
-
-## Testing
-
-After deployment, test the system with:
+## 🧪 **Testing**
 
 ```bash
-curl -X POST https://your-api-id.execute-api.region.amazonaws.com/prod/page1 \
+# Test the deployed system
+curl -X POST https://your-api-id.execute-api.ap-southeast-1.amazonaws.com/prod/jamal \
   -H "Content-Type: application/json" \
   -d '{"token": "demo-token-123"}'
 ```
 
-This should return a 302 redirect to your CloudFront URL.
+**Expected result:** 302 redirect to `jamal/index.html?token=demo-token-123`
 
-## Documentation
+## 🔧 **Configuration**
 
-- See `SETUP_GUIDE.md` for detailed setup instructions
-- Check the sample HTML files for examples of how to structure your content
+- **Default Bucket**: `aws-upwork-certificate`
+- **Default Region**: `ap-southeast-1`
+- **Default Stack**: `aws-upwork-certificate-no-cf`
+
+## 📞 **Support**
+
+If you encounter CloudFront verification issues, contact AWS Support with the error message from your deployment logs. 

@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Simple S3 bucket with static website hosting for testing.
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of the S3 bucket for static HTML hosting
+
+Resources:
+  ## S3 Bucket for static HTML content ##
+  StaticSiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticSiteBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicRead
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${BucketName}/*
+
+Outputs:
+  S3WebsiteURL:
+    Description: S3 Website URL
+    Value: !Sub http://${StaticSiteBucket}.s3-website-${AWS::Region}.amazonaws.com/
+  
+  BucketName:
+    Description: S3 bucket name
+    Value: !Ref BucketName 

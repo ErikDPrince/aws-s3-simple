@@ -1,0 +1,302 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Enhanced API Gateway + Lambda + S3 + CloudFront system with path-based routing and SSL certificate support.
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of the S3 bucket for static HTML hosting (must be globally unique)
+  
+  DomainName:
+    Type: String
+    Description: Your custom domain name (e.g., yourdomain.com)
+    Default: ""
+  
+  CertificateArn:
+    Type: String
+    Description: ARN of your SSL certificate from ACM (leave empty if using CloudFront default)
+    Default: ""
+
+Resources:
+
+  ## S3 Bucket for static HTML content ##
+  StaticSiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, HEAD]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticSiteBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicRead
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${BucketName}/*
+
+  ## Enhanced Lambda function for path-based routing ##
+  RedirectLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: EnhancedRedirectHandler
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            console.log('Event received:', JSON.stringify(event, null, 2));
+            
+            try {
+              // Extract token from request body
+              const body = JSON.parse(event.body || '{}');
+              const token = body.token;
+              
+              if (!token) {
+                return {
+                  statusCode: 400,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+                  },
+                  body: JSON.stringify({
+                    error: 'Token is required in request body'
+                  })
+                };
+              }
+              
+              // Extract path from the request
+              const path = event.rawPath.replace('/', '');
+              console.log('Path extracted:', path);
+              
+              // Get CloudFront domain from environment variable
+              const cfDomain = process.env.CF_DOMAIN;
+              
+              if (!cfDomain) {
+                throw new Error('CloudFront domain not configured');
+              }
+              
+              // Construct the redirect URL with token as query parameter
+              const redirectUrl = `https://${cfDomain}/${path}/index.html?token=${encodeURIComponent(token)}`;
+              console.log('Redirect URL:', redirectUrl);
+              
+              return {
+                statusCode: 302,
+                headers: {
+                  'Location': redirectUrl,
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Headers': 'Content-Type',
+                  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+                }
+              };
+              
+            } catch (error) {
+              console.error('Error processing request:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Headers': 'Content-Type',
+                  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+                },
+                body: JSON.stringify({
+                  error: 'Internal server error',
+                  message: error.message
+                })
+              };
+            }
+          };
+      Environment:
+        Variables:
+          CF_DOMAIN: !Ref CloudFrontDomainPlaceholder
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: EnhancedLambdaRedirectRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaSSMAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:PutParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cf/*
+
+  ## API Gateway - HTTP API with path-based routing ##
+  RedirectAPI:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: EnhancedRedirectAPI
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowHeaders: ['Content-Type']
+        AllowMethods: ['POST', 'OPTIONS']
+        AllowCredentials: false
+
+  # Route for specific paths (e.g., /jamal)
+  APIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref RedirectAPI
+      RouteKey: 'POST /{proxy+}'
+      Target: !Sub integrations/${LambdaIntegration}
+
+  # OPTIONS route for CORS
+  OptionsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref RedirectAPI
+      RouteKey: 'OPTIONS /{proxy+}'
+      Target: !Sub integrations/${LambdaIntegration}
+
+  LambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref RedirectAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RedirectLambda.Arn}/invocations
+      PayloadFormatVersion: '2.0'
+
+  APIStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: prod
+      ApiId: !Ref RedirectAPI
+      AutoDeploy: true
+
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RedirectLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RedirectAPI}/*/*/*
+
+  ## Enhanced CloudFront distribution ##
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt StaticSiteBucket.RegionalDomainName
+            S3OriginConfig: {}
+            OriginPath: ""
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          ForwardedValues:
+            QueryString: true
+            QueryStringCacheKeys:
+              Values: ['token']
+            Headers: ['Origin', 'Access-Control-Request-Headers', 'Access-Control-Request-Method']
+          Compress: true
+          DefaultTTL: 86400
+          MaxTTL: 31536000
+          MinTTL: 0
+        DefaultRootObject: index.html
+        Aliases: !If 
+          - HasCustomDomain
+          - [!Ref DomainName]
+          - !Ref AWS::NoValue
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+
+  ## SSL Certificate (if custom domain is provided) ##
+  SSLCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      SubjectAlternativeNames:
+        - !Sub "*.${DomainName}"
+
+  ## SSM Parameter for CloudFront domain ##
+  CloudFrontDomainPlaceholder:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /cf/domain
+      Type: String
+      Value: !GetAtt CloudFrontDistribution.DomainName
+
+  ## Conditions ##
+  HasCustomDomain:
+    Type: AWS::CloudFormation::Condition
+    Properties:
+      Fn::Not:
+        - Fn::Equals:
+            - !Ref DomainName
+            - ""
+
+Outputs:
+  S3WebsiteURL:
+    Description: S3 Website URL
+    Value: !Sub http://${StaticSiteBucket}.s3-website-${AWS::Region}.amazonaws.com/
+  
+  APIEndpoint:
+    Description: API Gateway endpoint for POST requests
+    Value: !Sub https://${RedirectAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/
+  
+  CloudFrontDomain:
+    Description: CloudFront distribution domain
+    Value: !GetAtt CloudFrontDistribution.DomainName
+  
+  CustomDomain:
+    Description: Custom domain (if provided)
+    Value: !If 
+      - HasCustomDomain
+      - !Ref DomainName
+      - "No custom domain configured"
+  
+  BucketName:
+    Description: S3 bucket name
+    Value: !Ref BucketName
+  
+  LambdaFunctionName:
+    Description: Lambda function name
+    Value: !Ref RedirectLambda
+  
+  CloudFrontDistributionId:
+    Description: CloudFront distribution ID
+    Value: !Ref CloudFrontDistribution 

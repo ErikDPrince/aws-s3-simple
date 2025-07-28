@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: API Gateway + Lambda + S3 system (without CloudFront for testing).
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of the S3 bucket for static HTML hosting
+
+Resources:
+
+  ## S3 Bucket for static HTML content ##
+  StaticSiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticSiteBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicRead
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${BucketName}/*
+
+  ## Lambda function for redirect logic ##
+  RedirectLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-RedirectHandler
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            console.log('Event received:', JSON.stringify(event, null, 2));
+            
+            try {
+              // Extract token from request body
+              const body = JSON.parse(event.body || '{}');
+              const token = body.token;
+              
+              if (!token) {
+                return {
+                  statusCode: 400,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+                  },
+                  body: JSON.stringify({
+                    error: 'Token is required in request body'
+                  })
+                };
+              }
+              
+              // Extract path from the request
+              const path = event.rawPath.replace('/', '');
+              console.log('Path extracted:', path);
+              
+              // Get S3 website URL from environment variable
+              const s3WebsiteUrl = process.env.S3_WEBSITE_URL;
+              
+              if (!s3WebsiteUrl) {
+                throw new Error('S3 website URL not configured');
+              }
+              
+              // Construct the redirect URL with token as query parameter
+              const redirectUrl = `${s3WebsiteUrl}/${path}/index.html?token=${encodeURIComponent(token)}`;
+              console.log('Redirect URL:', redirectUrl);
+              
+              return {
+                statusCode: 302,
+                headers: {
+                  'Location': redirectUrl,
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Headers': 'Content-Type',
+                  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+                }
+              };
+              
+            } catch (error) {
+              console.error('Error processing request:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Headers': 'Content-Type',
+                  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+                },
+                body: JSON.stringify({
+                  error: 'Internal server error',
+                  message: error.message
+                })
+              };
+            }
+          };
+      Environment:
+        Variables:
+          S3_WEBSITE_URL: !Sub http://${StaticSiteBucket}.s3-website-${AWS::Region}.amazonaws.com
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-LambdaRedirectRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  ## API Gateway - HTTP API ##
+  RedirectAPI:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: RedirectAPI
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowHeaders: ['Content-Type']
+        AllowMethods: ['POST', 'OPTIONS']
+        AllowCredentials: false
+
+  # Route for specific paths (e.g., /jamal)
+  APIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref RedirectAPI
+      RouteKey: 'POST /{proxy+}'
+      Target: !Sub integrations/${LambdaIntegration}
+
+  # OPTIONS route for CORS
+  OptionsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref RedirectAPI
+      RouteKey: 'OPTIONS /{proxy+}'
+      Target: !Sub integrations/${LambdaIntegration}
+
+  LambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref RedirectAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RedirectLambda.Arn}/invocations
+      PayloadFormatVersion: '2.0'
+
+  APIStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: prod
+      ApiId: !Ref RedirectAPI
+      AutoDeploy: true
+
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RedirectLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RedirectAPI}/*/*/*
+
+Outputs:
+  S3WebsiteURL:
+    Description: S3 Website URL
+    Value: !Sub http://${StaticSiteBucket}.s3-website-${AWS::Region}.amazonaws.com/
+  
+  APIEndpoint:
+    Description: API Gateway endpoint for POST requests
+    Value: !Sub https://${RedirectAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/
+  
+  BucketName:
+    Description: S3 bucket name
+    Value: !Ref BucketName
+  
+  LambdaFunctionName:
+    Description: Lambda function name
+    Value: !Ref RedirectLambda 
